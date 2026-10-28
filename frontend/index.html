@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudPulse | DevOps Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <h1>CloudPulse</h1>
+          <p class="subtitle">Cloud & DevOps Observability Testbed</p>
+        </div>
+      </div>
+      <div class="badge-container">
+        <span id="system-badge" class="badge badge-checking">
+          <span class="dot"></span>
+          <span id="badge-text">Checking API...</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- Metrics Overview Grid -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">API Health & Ping</div>
+        <div class="metric-value" id="ping-value">-- ms</div>
+        <div class="metric-sub" id="ping-sub">Endpoint: /health</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Backend Uptime</div>
+        <div class="metric-value" id="uptime-value">0s</div>
+        <div class="metric-sub">Process runtime</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Memory (Heap Used)</div>
+        <div class="metric-value" id="memory-value">-- MB</div>
+        <div class="metric-sub" id="memory-sub">RSS: -- MB</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Host Node Info</div>
+        <div class="metric-value" id="node-version">Node --</div>
+        <div class="metric-sub" id="hostname-value">Host: --</div>
+      </div>
+    </div>
+
+    <!-- Interactive DevOps Testing Section -->
+    <div class="main-layout">
+      <!-- Left Panel: Actions -->
+      <section class="panel">
+        <h2>🛠️ DevOps Traffic Simulator</h2>
+        <p class="panel-desc">
+          Generate real HTTP traffic to trigger Prometheus metrics (RPS, Latency histograms) and Grafana alert thresholds.
+        </p>
+
+        <div class="button-group">
+          <button id="btn-ping" class="btn btn-primary">
+            <span>📡</span> Send Single Request (200 OK)
+          </button>
+          <button id="btn-burst" class="btn btn-accent">
+            <span>🚀</span> Send 10 Traffic Bursts
+          </button>
+          <button id="btn-error" class="btn btn-danger">
+            <span>⚠️</span> Trigger 500 Error (Test Alerts)
+          </button>
+        </div>
+
+        <div class="observability-links">
+          <h3>📊 Observability Endpoints</h3>
+          <div class="link-tags">
+            <a href="http://localhost:5000/metrics" target="_blank" class="tag-link">
+              <span>📈</span> /metrics (Prometheus)
+            </a>
+            <a href="http://localhost:5000/health" target="_blank" class="tag-link">
+              <span>🩺</span> /health (Liveness)
+            </a>
+            <a href="http://localhost:9090" target="_blank" class="tag-link">
+              <span>🔥</span> Prometheus Web UI
+            </a>
+            <a href="http://localhost:3000" target="_blank" class="tag-link">
+              <span>📊</span> Grafana Dashboard
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Live Logs -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2>📋 Live Event Console</h2>
+          <button id="btn-clear-logs" class="btn-sm">Clear</button>
+        </div>
+        <div id="log-terminal" class="terminal-box">
+          <div class="log-entry log-info">[System] Initializing CloudPulse client interface...</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>CloudPulse DevOps Showcase &bull; Windows, Docker, Jenkins, GitHub Actions, AWS, Prometheus & Grafana</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
