@@ -49,12 +49,7 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    powershell '''
-                        $token = $env:DOCKER_PASS.Trim()
-                        $username = $env:DOCKER_USER.Trim()
-                        $token | docker login --username $username --password-stdin
-                        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                    '''
+                    bat '@docker login -u %DOCKER_USER% -p %DOCKER_PASS%'
                     bat 'docker push %DOCKER_HUB_REPO%:%IMAGE_TAG%'
                     bat 'docker push %DOCKER_HUB_REPO%:latest'
                 }
