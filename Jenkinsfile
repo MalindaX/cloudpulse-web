@@ -7,10 +7,9 @@ pipeline {
     }
 
     environment {
-        REGISTRY_USER = 'sandaruwanx'
-        IMAGE_NAME = "${REGISTRY_USER}/cloudpulse"
+        DOCKER_HUB_REPO = 'sandaruwanx/cloudpulse'
         IMAGE_TAG = "jenkins-${env.BUILD_NUMBER}"
-        DOCKER_CONFIG = "${WORKSPACE}\\.docker-ci"
+        DOCKER_CONFIG = "${WORKSPACE}/.docker-ci"
     }
 
     stages {
@@ -33,12 +32,12 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% -t %IMAGE_NAME%:latest .'
+                echo "Building Docker image: ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}"
+                bat 'docker build -t %DOCKER_HUB_REPO%:%IMAGE_TAG% -t %DOCKER_HUB_REPO%:latest .'
             }
         }
 
-       stage('Push to Docker Hub') {
+        stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -46,8 +45,9 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     powershell '''
-                        $token = "$env:DOCKER_PASS".Trim()
-                        $token | docker login --username "$env:DOCKER_USER".Trim() --password-stdin
+                        $token = $env:DOCKER_PASS.Trim()
+                        $username = $env:DOCKER_USER.Trim()
+                        $token | docker login --username $username --password-stdin
                         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                     '''
                     bat 'docker push %DOCKER_HUB_REPO%:%IMAGE_TAG%'
