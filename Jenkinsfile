@@ -8,34 +8,37 @@ pipeline {
 
     parameters {
         booleanParam(name: 'DEPLOY_LOCAL_CONTAINER', defaultValue: false,
-                     description: 'Restart local Docker Compose container with the freshly built image')
+                     description: 'Deploy the CloudPulse stack with Docker Compose')
     }
 
     environment {
-        DOCKER_HUB_REPO = 'sandaruwanx/opsbeacon'
-        IMAGE_TAG = "jenkins-${BUILD_NUMBER}"
+        DOCKER_HUB_REPO = 'sandaruwanx/cloudpulse'
+        IMAGE_TAG = "jenkins-${env.BUILD_NUMBER}"
+        DOCKER_CONFIG = "${WORKSPACE}/.docker-ci"
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout Source') {
             steps {
+                echo 'Checking out code from Git...'
                 checkout scm
             }
         }
 
-        stage('Install & Test') {
+        stage('Automated Tests') {
             steps {
-                echo 'Building test image and running lint and pytest...'
-                bat "docker build --target test -t opsbeacon-ci-test:${env.BUILD_NUMBER} ."
-                bat "docker run --rm opsbeacon-ci-test:${env.BUILD_NUMBER} python -m flake8 app/ tests/ --select=E9,F63,F7,F82 --show-source --statistics"
-                bat "docker run --rm opsbeacon-ci-test:${env.BUILD_NUMBER}"
+                echo 'Executing the CloudPulse Node.js test suite...'
+                dir('backend') {
+                    bat 'npm ci'
+                    bat 'npm test'
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "Building runtime image ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}..."
-                bat "docker build --target runtime -t ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG} -t ${env.DOCKER_HUB_REPO}:latest ."
+                echo "Building Docker image ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}..."
+                bat 'docker build -t %DOCKER_HUB_REPO%:%IMAGE_TAG% -t %DOCKER_HUB_REPO%:latest .'
             }
         }
 
@@ -47,31 +50,37 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     powershell '''
-                        $token = "$env:DOCKER_PASS".Trim()
-                        $token | docker login --username "$env:DOCKER_USER".Trim() --password-stdin
+                        $token = $env:DOCKER_PASS.Trim()
+                        $username = $env:DOCKER_USER.Trim()
+                        $token | docker login --username $username --password-stdin
                         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                     '''
-                    bat "docker push ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}"
-                    bat "docker push ${env.DOCKER_HUB_REPO}:latest"
+                    bat 'docker push %DOCKER_HUB_REPO%:%IMAGE_TAG%'
+                    bat 'docker push %DOCKER_HUB_REPO%:latest'
                 }
             }
         }
 
-        stage('Deploy to Docker') {
+        stage('Deploy Local Stack') {
             when { expression { params.DEPLOY_LOCAL_CONTAINER } }
             steps {
-                echo 'Deploying updated image to local Docker Compose...'
-                bat 'docker compose up -d'
+                echo 'Deploying the CloudPulse Docker Compose stack...'
+                bat 'docker compose up -d --build'
             }
         }
     }
 
     post {
         always {
-            bat 'docker logout'
+            powershell '''
+                docker logout
+                if (Test-Path $env:DOCKER_CONFIG) {
+                    Remove-Item -Recurse -Force $env:DOCKER_CONFIG
+                }
+            '''
         }
         success {
-            echo 'Pipeline succeeded: tests passed and image was published to Docker Hub.'
+            echo 'Pipeline succeeded: tests passed and the CloudPulse image was published.'
         }
         failure {
             echo 'Pipeline failed. Check the first failing stage in the console output.'
