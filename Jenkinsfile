@@ -6,34 +6,36 @@ pipeline {
         skipDefaultCheckout(true)
     }
 
+    parameters {
+        booleanParam(name: 'DEPLOY_LOCAL_CONTAINER', defaultValue: false,
+                     description: 'Restart local Docker Compose container with the freshly built image')
+    }
+
     environment {
-        DOCKER_HUB_REPO = 'sandaruwanx/cloudpulse'
-        IMAGE_TAG = "jenkins-${env.BUILD_NUMBER}"
-        DOCKER_CONFIG = "${WORKSPACE}/.docker-ci"
+        DOCKER_HUB_REPO = 'sandaruwanx/opsbeacon'
+        IMAGE_TAG = "jenkins-${BUILD_NUMBER}"
     }
 
     stages {
-        stage('Checkout Source') {
+        stage('Checkout Code') {
             steps {
-                echo 'Checking out code from Git...'
                 checkout scm
             }
         }
 
-        stage('Automated Tests') {
+        stage('Install & Test') {
             steps {
-                echo 'Executing Node.js automated test suite...'
-                dir('backend') {
-                    bat 'npm ci'
-                    bat 'npm test'
-                }
+                echo 'Building test image and running lint and pytest...'
+                bat "docker build --target test -t opsbeacon-ci-test:${env.BUILD_NUMBER} ."
+                bat "docker run --rm opsbeacon-ci-test:${env.BUILD_NUMBER} python -m flake8 app/ tests/ --select=E9,F63,F7,F82 --show-source --statistics"
+                bat "docker run --rm opsbeacon-ci-test:${env.BUILD_NUMBER}"
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image: ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}"
-                bat 'docker build -t %DOCKER_HUB_REPO%:%IMAGE_TAG% -t %DOCKER_HUB_REPO%:latest .'
+                echo "Building runtime image ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}..."
+                bat "docker build --target runtime -t ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG} -t ${env.DOCKER_HUB_REPO}:latest ."
             }
         }
 
@@ -45,39 +47,34 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     powershell '''
-                        $token = $env:DOCKER_PASS.Trim()
-                        $username = $env:DOCKER_USER.Trim()
-                        $token | docker login --username $username --password-stdin
+                        $token = "$env:DOCKER_PASS".Trim()
+                        $token | docker login --username "$env:DOCKER_USER".Trim() --password-stdin
                         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                     '''
-                    bat 'docker push %DOCKER_HUB_REPO%:%IMAGE_TAG%'
-                    bat 'docker push %DOCKER_HUB_REPO%:latest'
+                    bat "docker push ${env.DOCKER_HUB_REPO}:${env.IMAGE_TAG}"
+                    bat "docker push ${env.DOCKER_HUB_REPO}:latest"
                 }
             }
         }
 
-        stage('Deploy Local Stack') {
+        stage('Deploy to Docker') {
+            when { expression { params.DEPLOY_LOCAL_CONTAINER } }
             steps {
-                echo 'Deploying containerized application with Docker Compose...'
-                bat 'docker compose up -d --build'
+                echo 'Deploying updated image to local Docker Compose...'
+                bat 'docker compose up -d'
             }
         }
     }
 
     post {
         always {
-            powershell '''
-                docker logout
-                if (Test-Path $env:DOCKER_CONFIG) {
-                    Remove-Item -Recurse -Force $env:DOCKER_CONFIG
-                }
-            '''
+            bat 'docker logout'
         }
         success {
-            echo 'Pipeline succeeded: App tested, container built, pushed, and deployed.'
+            echo 'Pipeline succeeded: tests passed and image was published to Docker Hub.'
         }
         failure {
-            echo 'Pipeline failed. Check stage logs for details.'
+            echo 'Pipeline failed. Check the first failing stage in the console output.'
         }
     }
 }
