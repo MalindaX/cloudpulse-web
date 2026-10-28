@@ -38,18 +38,20 @@ pipeline {
             }
         }
 
-        stage('Push to Registry') {
+       stage('Push to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
-                                 usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     powershell '''
-                        New-Item -ItemType Directory -Force -Path $env:DOCKER_CONFIG | Out-Null
-                        $token = $env:DOCKER_PASS.Trim()
-                        $token | docker login --username $env:DOCKER_USER.Trim() --password-stdin
+                        $token = "$env:DOCKER_PASS".Trim()
+                        $token | docker login --username "$env:DOCKER_USER".Trim() --password-stdin
                         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                     '''
-                    bat 'docker push %IMAGE_NAME%:%IMAGE_TAG%'
-                    bat 'docker push %IMAGE_NAME%:latest'
+                    bat 'docker push %DOCKER_HUB_REPO%:%IMAGE_TAG%'
+                    bat 'docker push %DOCKER_HUB_REPO%:latest'
                 }
             }
         }
